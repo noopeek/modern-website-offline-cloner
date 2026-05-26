@@ -1,10 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Clone base com wget (HTML bruto + _next + CSS + imagens + fontes)
+# Ajuste as variáveis de ambiente ou edite os defaults abaixo.
+
 BASE_URL="${BASE_URL:-https://www.site-exemplo.com/}"
 COOKIES_FILE="${COOKIES_FILE:-./cookies.txt}"
 OUTPUT_DIR="${OUTPUT_DIR:-./site-clonado}"
+
+# CLEAN_OUTPUT=1 → limpa o diretório antes de clonar (evita ENOTDIR)
 CLEAN_OUTPUT="${CLEAN_OUTPUT:-1}"
+
+# Deriva o domínio automaticamente a partir da URL base
+# Ex.: "https://www.site-exemplo.com/" → "site-exemplo.com"
+DOMAIN=$(echo "${BASE_URL}" | sed -E 's|https?://(www\.)?||; s|/.*||')
 
 mkdir -p "${OUTPUT_DIR}"
 
@@ -14,6 +23,8 @@ if [[ "${CLEAN_OUTPUT}" == "1" ]]; then
 fi
 
 echo "[clone_wget] Iniciando wget para ${BASE_URL}"
+echo "[clone_wget] Domínio detectado: ${DOMAIN}"
+
 wget \
   --mirror \
   --convert-links \
@@ -21,7 +32,7 @@ wget \
   --page-requisites \
   --no-parent \
   --span-hosts \
-  --domains="site-exemplo.com,www.site-exemplo.com" \
+  --domains="${DOMAIN},www.${DOMAIN}" \
   --exclude-domains="google-analytics.com,www.google-analytics.com,doubleclick.net,facebook.net,connect.facebook.net" \
   --trust-server-names \
   --restrict-file-names=windows \
@@ -34,7 +45,6 @@ wget \
   --tries=30 \
   --waitretry=5 \
   --retry-connrefused \
-  --continue \
   --timeout=30 \
   --dns-timeout=15 \
   --connect-timeout=15 \
