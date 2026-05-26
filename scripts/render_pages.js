@@ -62,7 +62,7 @@ function guessExtensionFromContentType(contentType) {
     if (subtype === 'jpeg') return '.jpg';
     return `.${subtype}`;
   }
-  if (ct.startsWith('font/')) return '.woff2'; // fallback genérico para fontes
+  if (ct.startsWith('font/')) return '.woff2';
   if (ct === 'application/font-woff') return '.woff';
   if (ct === 'application/json') return '.json';
   return '';
@@ -81,15 +81,16 @@ function urlToAssetPath(resourceUrl, contentType) {
     pathname = pathname.slice(0, -1);
   }
 
-  const segments = pathname.split('/').filter(Boolean);
+  // Sanitiza segmentos: remove '..' e '.' para evitar path traversal
+  const segments = pathname
+    .split('/')
+    .filter((s) => s && s !== '..' && s !== '.');
+
   let filename = segments.pop() || 'index';
 
   const hasExtension = filename.includes('.');
   if (!hasExtension) {
-    // 1. tenta por Content-Type
     let ext = guessExtensionFromContentType(contentType);
-    // 2. fallback: tenta extrair extensão diretamente do pathname da URL
-    //    útil para CDNs que servem fontes/assets como application/octet-stream
     if (!ext) {
       ext = path.extname(u.pathname) || '';
     }
@@ -115,7 +116,9 @@ function routeToFilePath(route) {
 
   const parsed = new URL('http://dummy' + rel);
   const cleanPath = parsed.pathname || '/';
-  const segments = cleanPath.split('/').filter(Boolean);
+  const segments = cleanPath
+    .split('/')
+    .filter((s) => s && s !== '..' && s !== '.');
   const dir = path.join(OUTPUT_DIR, ...segments);
   ensureDir(dir);
   return path.join(dir, 'index.html');
@@ -157,7 +160,7 @@ async function main() {
   ensureDir(OUTPUT_DIR);
 
   const browser = await puppeteer.launch({
-    headless: 'new',
+    headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
   });
 
@@ -166,7 +169,9 @@ async function main() {
     // para garantir que estejam disponíveis desde a primeira requisição.
     if (fs.existsSync(COOKIES_FILE)) {
       const cookies = parseNetscapeCookies(COOKIES_FILE, BASE_URL);
-      console.log(`[render_pages] Aplicando ${cookies.length} cookies no contexto do browser...`);
+      console.log(
+        `[render_pages] Aplicando ${cookies.length} cookies no contexto do browser...`,
+      );
       const context = browser.defaultBrowserContext();
       await context.setCookie(...cookies);
     } else {
@@ -177,10 +182,17 @@ async function main() {
 
     const page = await browser.newPage();
 
-    // Interceptação de respostas para salvar assets
+    // Set de deduplicação: evita race condition quando o mesmo asset
+    // é solicitado múltiplas vezes (redirect, retry, prefetch do Next.js)
+    const savedAssets = new Set();
+
     page.on('response', async (response) => {
       try {
         const url = response.url();
+
+        // Ignora URLs já processadas (checagem em memória, sem I/O)
+        if (savedAssets.has(url)) return;
+
         const headers = response.headers();
         const contentType = headers['content-type'] || '';
 
@@ -197,6 +209,9 @@ async function main() {
 
         if (!isAsset) return;
 
+        // Marca como processada antes do await para evitar concorrência
+        savedAssets.add(url);
+
         // response.bytes() substitui response.buffer() no Puppeteer v22+
         const buffer = await response.bytes().catch(() => null);
         if (!buffer || !buffer.length) return;
@@ -204,7 +219,7 @@ async function main() {
         const filePath = urlToAssetPath(url, contentType);
         if (!filePath) return;
 
-        // Não sobrescreve assets já capturados pelo wget
+        // Não sobrescreve assets já presentes em disco (capturados pelo wget)
         if (fs.existsSync(filePath)) return;
 
         fs.writeFileSync(filePath, buffer);
@@ -218,12 +233,21 @@ async function main() {
       console.log(`[render_pages] Navegando para ${targetUrl}`);
 
       try {
+        // domcontentloaded é mais robusto que networkidle2 em SPAs com
+        // polling, WebSockets ou conexões persistentes (que nunca atingem idle)
         await page.goto(targetUrl, {
-          waitUntil: 'networkidle2',
+          waitUntil: 'domcontentloaded',
           timeout: 120000,
         });
 
-        // Aguarda 2s extra para JS tardio (ex.: lazy hydration do Next.js)
+        // Tenta aguardar o elemento principal do app; fallback temporal se não existir
+        await page
+          .waitForSelector('main, #__next, #app, [data-reactroot]', {
+            timeout: 10000,
+          })
+          .catch(() => {});
+
+        // Aguarda 2s extra para lazy hydration e chunks assíncronos do Next.js
         await wait(2000);
 
         const html = await page.content();
