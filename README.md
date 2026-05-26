@@ -431,4 +431,4 @@ Use este projeto apenas em ambientes onde você tem permissão explícita para c
 ---
 
 _Assinado:_  
-**NotyPeek** — Estudante e apaixonado por SEC^_^
+**NooPeek** — Estudante e apaixonado por SEC^_^
