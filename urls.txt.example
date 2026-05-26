@@ -1,0 +1,6 @@
+# Um URL por linha (sem aspas)
+# Comente linhas com # se quiser desativar temporariamente
+
+https://www.site-exemplo.com/_next/static/chunks/asset-uuid-1.js
+https://www.site-exemplo.com/_next/static/chunks/asset-uuid-2.js
+https://cdn.site-exemplo.com/assets/asset-uuid-3.png

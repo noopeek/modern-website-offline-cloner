@@ -1,0 +1,5 @@
+# Netscape HTTP Cookie File
+# Exemplo de formato (NÃO USE DADOS REAIS AQUI)
+# domain    include_subdomains  path   secure  expires             name         value
+.site-exemplo.com	TRUE	/	FALSE	1893456000	sessionid	ExemploDeSessionId
+.site-exemplo.com	TRUE	/	TRUE	1893456000	auth-token	ExemploDeAuthToken

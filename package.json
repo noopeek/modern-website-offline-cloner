@@ -1,0 +1,34 @@
+{
+  "name": "modern-website-offline-cloner",
+  "version": "1.0.0",
+  "description": "Clone offline de sites modernos (Next.js/React/SPA) usando wget + puppeteer-extra-stealth + servidor HTTP Python.",
+  "main": "scripts/render_pages.js",
+  "scripts": {
+    "clone": "bash scripts/clone_wget.sh",
+    "render": "node scripts/render_pages.js",
+    "assets": "bash scripts/fetch_assets.sh",
+    "full": "bash scripts/full_clone.sh",
+    "serve": "python3 scripts/server.py --dir ./site-clonado --port 8000"
+  },
+  "keywords": [
+    "wget",
+    "puppeteer",
+    "puppeteer-extra",
+    "stealth",
+    "offline",
+    "nextjs",
+    "react",
+    "spa",
+    "webscraping",
+    "mirror"
+  ],
+  "author": "NotyPeek",
+  "license": "MIT",
+  "dependencies": {
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
